@@ -7,7 +7,7 @@ directory="/path/"
 watermark="/path/to/file.png"
 
 # Define your file path for the timecode font:
-tcfont="/path/to/font."
+tcfont="/path/to/font.ttc"
 
 # Prompt the user for input (either a file or folder)
 echo
