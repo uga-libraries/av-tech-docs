@@ -2,7 +2,6 @@
 
 # DEFINABLE variables
 topdirectory="magic-wand/"
-backup="backup/magic-wand" # Do not put a / on the end of the backup path or it will not sync properly.
 logfile="/magic-wand-log.txt"
 
 # MACHINE-CREATABLE DIRECTORIES
@@ -207,10 +206,6 @@ do
   fi
 done
 
-# Copy files to a backup drive.
-
-echo -e "\nSYNCING FILES TO BACKUP DESTINATION." | tee -a "$logfile"
-rsync -au --delete --stats "$mkvdirectory" "$mezzaninemovdirectory" "$backup" | tee -a "$logfile"
 
 echo -e "\nMAGIC WAND HAS DONE ITS MAGICK" | tee -a "$logfile"
 echo "WAND CREATED "$mp4counter" access mp4(s), "$movcounter" mezzanine mov(s), and "$md5counter" md5 checksum(s)." | tee -a "$logfile"
