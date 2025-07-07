@@ -155,7 +155,7 @@ do
       echo "---This mov is already created. Exiting." | tee -a "$logfile"
     else
       echo "---Mezzanine mov does not yet exist. Creating." | tee -a "$logfile"
-      ffmpeg -i "$f" -c:v prores -profile:v 3 -vf yadif -c:a pcm_s16le -hide_banner -loglevel error "$mezzaninemovdirectory""$filename"".mov"
+      ffmpeg -i "$f" -c:v prores -profile:v 3 -c:a pcm_s16le -hide_banner -loglevel error "$mezzaninemovdirectory""$filename"".mov"
       movcounter=$((movcounter+1))
     fi
 
