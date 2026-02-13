@@ -1,6 +1,6 @@
-"""This script takes the exported vtt from Aviary transcript editor and splits the speaker chunking into no more than two lines on the screen for captions. 
+"""This script takes the exported vtt from Aviary transcript editor and splits the speaker chunking into no more than two lines on the screen for captions. The output file is formatted for Collective Access webvtt. 
 
-This script runs on a single file input and outputs where the user directs. To run this script in terminal: python3 OH_split_vtt_2lines.py [inputfile.webvtt] [outputfile_split.webvtt] 
+This script runs on a single file input and outputs where the user directs for output file path. To run this script in terminal: python3 OH_split_vtt_2lines.py [pathtoinputfile.webvtt] [pathtooutputfile_split.webvtt] 
 Note: The user will need to edit the output file name manually before running script/command in terminal for output file name to have _split appended.
 
 """
