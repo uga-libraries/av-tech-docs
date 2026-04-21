@@ -43,7 +43,7 @@ search_files() {
         echo "$index: LTO - $line (LTO: $lto_number)"
         matches+=("LTO:$lto_number:$line")
         ((index++))
-    done < <(grep -R "$filename" "$LTO_LOGS_DIR" | head -n 10)
+    done < <(grep -R "$filename" "$LTO_LOGS_DIR" | head -n 100)
 
     if [ ${#matches[@]} -eq 0 ]; then
         echo "No matches found."
