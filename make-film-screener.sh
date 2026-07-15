@@ -1,13 +1,30 @@
 #!/bin/bash
 
-# Define your clip destination directory:
-directory="/path/"
+# --- SMART ENVIRONMENT LOADER ---
+# This climbs up folders until it finds your master .env file and loads it line-by-line
+current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ "$current_dir" != "" && "$current_dir" != "/" ]]; do
+  if [[ -f "$current_dir/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+      key="${line%%=*}"
+      val="${line#*=}"
+      val="${val%\"}"
+      val="${val#\"}"
+      val="${val%\'}"
+      val="${val#\'}"
+      export "$key"="$val"
+    done < "$current_dir/.env"
+    break
+  fi
+  current_dir="$(dirname "$current_dir")"
+done
 
-# Define your file path for the BMA watermark:
-watermark="/path/to/file.png"
-
-# Define your file path for the timecode font:
-tcfont="/path/to/font.ttc"
+# Define variables from environment (Falls back to defaults if .env is missing)
+directory="${SCREENER_DEST_DIR:-/path/}"
+watermark="${BMA_WATERMARK_PATH:-/path/to/file.png}"
+tcfont="${TIMECODE_FONT_PATH:-/path/to/font.ttc}"
 
 # Prompt the user for input (either a file or folder)
 echo

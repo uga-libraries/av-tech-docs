@@ -10,21 +10,57 @@ import csv
 import hashlib
 from datetime import date
 
-# --- CONFIGURATION ---
-SERVERS = [
-    "/Volumes/mezzanine_1",
-    "/Volumes/mezzanine_2",
-    "/Volumes/mezzanine_3",
-    "/Volumes/mezzanine_4",
-    "/Volumes/mezzanine_5"
-]
-# Base directory for MediaInfo (script will save mediainfo output to a subfolder in this directory)
-MEDIAINFO_BASE = "/PATH/WHERE/YOU/WANT/MEDIAINFO/TO/GO"
+# --- SMART ENVIRONMENT LOADER ---
+# This climbs up your folders until it finds your master .env file
+def load_env():
+    # Start looking in the folder where this script lives
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    while current_dir:
+        env_file = os.path.join(current_dir, ".env")
+        if os.path.exists(env_file):
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ[key.strip()] = val.strip().strip('"').strip("'")
+            return # Found it and loaded it, stop looking!
+        
+        # If not found, move up one directory level (closer to the root)
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:  # Reached the ultimate root of the computer
+            break
+        current_dir = parent_dir
+
+# Execute env loader
+load_env()
+
+# --- CONFIGURATION (Loaded from .env) ---
+# Reads servers as a comma-separated list from your .env file
+env_servers = os.environ.get("MEZZ_SERVERS")
+if env_servers:
+    MEZZ_SERVERS = [s.strip() for s in env_servers.split(",") if s.strip()]
+else:
+    # Fallback defaults if .env file is missing
+    MEZZ_SERVERS = [
+        "/Volumes/mezzanine_1",
+        "/Volumes/mezzanine_2",
+        "/Volumes/mezzanine_3",
+        "/Volumes/mezzanine_4",
+        "/Volumes/mezzanine_5"
+    ]
+
+# Reads MediaInfo base path from your .env file
+LOCAL_MEDIAINFO_FOLDER = os.environ.get("LOCAL_MEDIAINFO_FOLDER", "/PATH/WHERE/YOU/WANT/MEDIAINFO/TO/GO")
+
 
 def calculate_md5(filepath):
     hash_md5 = hashlib.md5()
     with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
+        for chunk in iter(lambda: f.read(4096), b''):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
@@ -73,7 +109,7 @@ def main():
                     f.write(f"{val}  {mov}")
 
     # 3. MediaInfo
-    dated_mediainfo_dir = os.path.join(MEDIAINFO_BASE, f"{start_date_str}_film-scan-movs")
+    dated_mediainfo_dir = os.path.join(LOCAL_MEDIAINFO_FOLDER, f"{start_date_str}_film-scan-movs")
     os.makedirs(dated_mediainfo_dir, exist_ok=True)
     print("\nGenerating MediaInfo XMLs...")
     for mov in mov_files:
@@ -87,7 +123,7 @@ def main():
     already_on_server = []
     for mov in mov_files:
         size = get_size_format(os.path.getsize(os.path.join(input_dir, mov)))
-        found = any(os.path.exists(os.path.join(s, mov)) for s in SERVERS)
+        found = any(os.path.exists(os.path.join(s, mov)) for s in MEZZ_SERVERS)
         csv_data.append({
             'Filename': mov, 
             'Status': "On Server" if found else "New", 
@@ -116,9 +152,9 @@ def main():
     if not to_move: return print("\nNo new files to transfer.")
 
     print("\nAvailable Servers:")
-    for i, s in enumerate(SERVERS, 1): print(f"{i}. {s}")
+    for i, s in enumerate(MEZZ_SERVERS, 1): print(f"{i}. {s}")
     try:
-        dest_server = SERVERS[int(input("\nSelect server (1-5): ")) - 1]
+        dest_server = MEZZ_SERVERS[int(input("\nSelect server (1-5): ")) - 1]
     except: return print("Invalid selection.")
 
     # Create the folder for successful copies

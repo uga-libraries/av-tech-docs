@@ -1,7 +1,28 @@
 #!/bin/bash
 
-# Define your clip destination directory:
-directory="/path/to/output/"
+# --- SMART ENVIRONMENT LOADER ---
+# This climbs up folders until it finds your master .env file and loads it line-by-line
+current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ "$current_dir" != "" && "$current_dir" != "/" ]]; do
+  if [[ -f "$current_dir/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+      key="${line%%=*}"
+      val="${line#*=}"
+      val="${val%\"}"
+      val="${val#\"}"
+      val="${val%\'}"
+      val="${val#\'}"
+      export "$key"="$val"
+    done < "$current_dir/.env"
+    break
+  fi
+  current_dir="$(dirname "$current_dir")"
+done
+
+# Define your destination directory using the shared CLIP_DEST_DIR variable:
+directory="${CLIP_DEST_DIR:-/path/to/output/}"
 
 # Instruct user to provide path to input file.
 echo

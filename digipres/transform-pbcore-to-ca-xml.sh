@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# --- SMART ENVIRONMENT LOADER ---
+# This climbs up folders until it finds your master .env file and loads it line-by-line
+current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ "$current_dir" != "" && "$current_dir" != "/" ]]; do
+  if [[ -f "$current_dir/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      # Skip comments and empty lines
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+      
+      # Parse key/value pairs and strip wrapping quotes
+      key="${line%%=*}"
+      val="${line#*=}"
+      val="${val%\"}"
+      val="${val#\"}"
+      val="${val%\'}"
+      val="${val#\'}"
+      export "$key"="$val"
+    done < "$current_dir/.env"
+    break
+  fi
+  current_dir="$(dirname "$current_dir")"
+done
+
 echo
 echo "Default values:"
 echo "  instantiationCreator: brownMediaArchives"
@@ -24,8 +48,9 @@ MEZZ_SHARE=""
 LTO_ID=""
 LTO_ID_2=""
 
-XSL="/Users/ceholmes/CA-stylesheets/ca-dig-obj-05-14.xsl"
-SAXON="/Applications/SaxonHE9-8-0-12J/saxon9he.jar"
+# Read paths from environment variables, or fall back to defaults if not set
+XSL="${XSL_STYLESHEET_PATH:-/PATH/TO/XSL/STYLESHEET}"
+SAXON="${SAXON_JAR_PATH:-/PATH/TO/SAXON.jar}"
 
 INPUT_PATH=""
 
@@ -40,7 +65,7 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
   echo "Options:"
   echo "  --creator <value>       Override instantiationCreator"
   echo "  --generation <value>    digitalPreservationMaster, mezzanine, or archivalOriginal"
-  echo "  --share <value>         Mezzanine share name (for DPHub)"
+  echo "  --share <value>         Mezzanine share name (for DPHub, ex. mezzanine_1)"
   echo "  --lto <value>           Primary LTO Tape ID"
   echo "  --lto2 <value>          Backup LTO Tape ID"
   echo

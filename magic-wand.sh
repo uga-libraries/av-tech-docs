@@ -1,8 +1,29 @@
 #!/bin/bash
 
-# DEFINABLE variables
-topdirectory="magic-wand/"
-logfile="/magic-wand-log.txt"
+# --- SMART ENVIRONMENT LOADER ---
+# This climbs up folders until it finds your master .env file and loads it line-by-line
+current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ "$current_dir" != "" && "$current_dir" != "/" ]]; do
+  if [[ -f "$current_dir/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+      key="${line%%=*}"
+      val="${line#*=}"
+      val="${val%\"}"
+      val="${val#\"}"
+      val="${val%\'}"
+      val="${val#\'}"
+      export "$key"="$val"
+    done < "$current_dir/.env"
+    break
+  fi
+  current_dir="$(dirname "$current_dir")"
+done
+
+# DEFINABLE variables (Falls back to defaults if .env is missing)
+topdirectory="${WAND_TOP_DIR:-magic-wand/}"
+logfile="${WAND_LOG_FILE:-/magic-wand-log.txt}"
 
 # MACHINE-CREATABLE DIRECTORIES
 mkdir -p "$topdirectory""mezz-movs/"
