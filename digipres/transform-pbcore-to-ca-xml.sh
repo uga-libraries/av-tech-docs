@@ -8,6 +8,9 @@ echo
 echo "Override with:"
 echo "  --creator <value>"
 echo "  --generation <value>"
+echo "  --share <value>         Mezzanine share name (for DPHub)"
+echo "  --lto <value>           Primary LTO Tape ID"
+echo "  --lto2 <value>          Backup LTO Tape ID (optional)"
 echo
 
 
@@ -17,11 +20,12 @@ echo
 
 CREATOR="brownMediaArchives"
 GENERATION="digitalPreservationMaster"
-# Added to help track born-digital logic if needed later
 MEZZ_SHARE=""
+LTO_ID=""
+LTO_ID_2=""
 
-XSL="/INSERT/PATH/TO/ca-dig-obj.xsl"
-SAXON="/INSERT/PATH/TO/SaxonHE9-8-0-12J/saxon9he.jar"
+XSL="/Users/ceholmes/CA-stylesheets/ca-dig-obj-05-14.xsl"
+SAXON="/Applications/SaxonHE9-8-0-12J/saxon9he.jar"
 
 INPUT_PATH=""
 
@@ -36,10 +40,12 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
   echo "Options:"
   echo "  --creator <value>       Override instantiationCreator"
   echo "  --generation <value>    digitalPreservationMaster, mezzanine, or archivalOriginal"
-  echo "  --share <value>         Mezzanine share name (required for mezzanine)"
+  echo "  --share <value>         Mezzanine share name (for DPHub)"
+  echo "  --lto <value>           Primary LTO Tape ID"
+  echo "  --lto2 <value>          Backup LTO Tape ID"
   echo
   echo "Examples:"
-  echo "  ./transform_pbcore_batch.sh folder --generation archivalOriginal"
+  echo "  ./transform_pbcore_batch.sh folder --generation mezzanine --lto 000121L7 --lto2 000122L7"
   exit 0
 fi
 
@@ -59,6 +65,14 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --share)
       MEZZ_SHARE="$2"
+      shift 2
+      ;;
+    --lto)
+      LTO_ID="$2"
+      shift 2
+      ;;
+    --lto2)
+      LTO_ID_2="$2"
       shift 2
       ;;
     *)
@@ -110,7 +124,12 @@ echo "Creator:      $CREATOR"
 echo "Generation:   $GENERATION"
 
 if [[ "$GENERATION" == "mezzanine" ]]; then
-  echo "Mezzanine share: $MEZZ_SHARE"
+  if [[ -n "$LTO_ID" ]]; then
+    echo "Primary LTO:  $LTO_ID"
+    [[ -n "$LTO_ID_2" ]] && echo "Backup LTO:   $LTO_ID_2"
+  else
+    echo "Location:     Mezzanine share $MEZZ_SHARE"
+  fi
 fi
 
 echo
@@ -140,6 +159,14 @@ for FILE in "${FILE_LIST[@]}"; do
 
   echo "Processing $COUNT of $TOTAL: $FILENAME"
 
+  # ERROR VALIDATION: Ensure mezzanine has a location defined
+  if [[ "$GENERATION" == "mezzanine" ]]; then
+    if [[ -z "$MEZZ_SHARE" && -z "$LTO_ID" ]]; then
+      echo "  ERROR: Mezzanine generation requires either --share or --lto for $FILENAME"
+      exit 1
+    fi
+  fi
+
   # Skip if output already exists
   if [[ -f "$OUTFILE" ]]; then
     echo "  Skipping (already exists)"
@@ -152,15 +179,12 @@ for FILE in "${FILE_LIST[@]}"; do
     -o:"$OUTFILE" \
     creator="$CREATOR" \
     generation="$GENERATION" \
-    mezzanine_share="$MEZZ_SHARE"
+    mezzanine_share="$MEZZ_SHARE" \
+    lto_id="$LTO_ID" \
+    lto_id_2="$LTO_ID_2"
 
   if [[ $? -ne 0 ]]; then
   echo "  ERROR: Saxon failed on $FILENAME"
-  exit 1
-  fi
-
-  if [[ ! -f "$OUTFILE" ]]; then
-  echo "  ERROR: Output file not created for $FILENAME"
   exit 1
   fi
 
