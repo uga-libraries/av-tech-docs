@@ -1,122 +1,187 @@
-#!/usr/bin/env python3
-
-import argparse
-import subprocess
 import sys
-import os
+import subprocess
+import argparse
 from pathlib import Path
 
-# Import your centralized config to load .env variables
-import config
+# Look up one level to find config.py in the av-tech-docs root directory
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent
 
-def main():
-    # Set up argument parsing to replace the bash case/shift loop
-    parser = argparse.ArgumentParser(
-        description="PBCore Transformation Script",
-        formatter_class=argparse.RawTextHelpFormatter,
-        epilog="Examples:\n  python transform_pbcore_batch.py folder --generation mezzanine --lto 000121L7 --lto2 000122L7"
-    )
-    parser.add_argument("input_path", nargs="?", default="", help="Input file or folder")
-    parser.add_argument("--creator", default="brownMediaArchives", help="Override instantiationCreator")
-    parser.add_argument("--generation", default="digitalPreservationMaster", help="digitalPreservationMaster, mezzanine, or archivalOriginal")
-    parser.add_argument("--share", default="", help="Mezzanine share name (for DPHub, ex. mezzanine_1)")
-    parser.add_argument("--lto", default="", help="Primary LTO Tape ID")
-    parser.add_argument("--lto2", default="", help="Backup LTO Tape ID")
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-    args = parser.parse_args()
+# Import the required path helper directly from your suite's central config
+from config import require_path
 
-    # Prompt if no input supplied
-    input_str = args.input_path
-    if not input_str:
-        input_str = input("Input file or folder: ").strip()
-        if not input_str:
-            print("No input provided. Exiting.")
-            return
-    
-    input_path = Path(input_str).resolve()
+# Use the require_path as set up in the config file (No fallbacks)[cite: 3]
+XSL = require_path("XSL_STYLESHEET_PATH")
+SAXON = require_path("SAXON_JAR_PATH")
 
-    # Determine file list
-    if input_path.is_file():
-        input_dir = input_path.parent
-        file_list = [input_path]
-    elif input_path.is_dir():
-        input_dir = input_path
-        file_list = sorted(input_dir.glob("*.xml"))
+#############################################
+# Parse options using argparse
+#############################################
+parser = argparse.ArgumentParser(
+    description="PBCore Transformation Script",
+    formatter_class=argparse.RawTextHelpFormatter
+)
+
+parser.add_argument(
+    "--creator", 
+    default="brownMediaArchives", 
+    help="Override instantiationCreator"
+)
+parser.add_argument(
+    "--generation", 
+    default="digitalPreservationMaster", 
+    help="digitalPreservationMaster, mezzanine, or archivalOriginal"
+)
+parser.add_argument(
+    "--share", 
+    default="", 
+    help="Mezzanine share name (for DPHub, ex. mezzanine_1)"
+)
+parser.add_argument(
+    "--lto", 
+    default="", 
+    help="Primary LTO Tape ID"
+)
+parser.add_argument(
+    "--lto2", 
+    default="", 
+    help="Backup LTO Tape ID"
+)
+parser.add_argument(
+    "input_path", 
+    nargs="?", 
+    default="", 
+    help="Input file or folder"
+)
+
+# Parse the arguments
+args = parser.parse_args()
+
+CREATOR = args.creator
+GENERATION = args.generation
+MEZZ_SHARE = args.share
+LTO_ID = args.lto
+LTO_ID_2 = args.lto2
+INPUT_PATH_STR = args.input_path
+
+print()
+print("Default values:")
+print("  instantiationCreator: brownMediaArchives")
+print("  instantiationGeneration: digitalPreservationMaster")
+print()
+print("Override with:")
+print("  --creator <value>")
+print("  --generation <value>")
+print("  --share <value>         Mezzanine share name (for DPHub)")
+print("  --lto <value>           Primary LTO Tape ID")
+print("  --lto2 <value>          Backup LTO Tape ID (optional)")
+print()
+
+#############################################
+# Prompt if no input supplied
+#############################################
+if not INPUT_PATH_STR:
+    INPUT_PATH_STR = input("Input file or folder: ")
+
+# Turn input into a sanitized Path object[cite: 3]
+INPUT_PATH = Path(INPUT_PATH_STR.strip()).expanduser()
+
+#############################################
+# Determine file list
+#############################################
+if INPUT_PATH.is_file():
+    INPUT_DIR = INPUT_PATH.parent
+    FILE_LIST = [INPUT_PATH]
+else:
+    INPUT_DIR = INPUT_PATH
+    FILE_LIST = sorted(INPUT_DIR.glob("*.xml"))[cite: 1]
+
+#############################################
+# Output directory
+#############################################
+DEFAULT_OUTPUT = INPUT_DIR / "transformed"[cite: 1]
+
+user_output = input(f"Output folder [{DEFAULT_OUTPUT}]: ")
+if user_output.strip():
+    OUTPUT_DIR = Path(user_output.strip()).expanduser()
+else:
+    OUTPUT_DIR = DEFAULT_OUTPUT
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)[cite: 1]
+
+#############################################
+# Summary
+#############################################
+print()
+print(f"Input:        {INPUT_PATH}")
+print(f"Output:       {OUTPUT_DIR}")
+print(f"Creator:      {CREATOR}")
+print(f"Generation:   {GENERATION}")
+
+if GENERATION == "mezzanine":
+    if LTO_ID:
+        print(f"Primary LTO:  {LTO_ID}")
+        if LTO_ID_2:
+            print(f"Backup LTO:   {LTO_ID_2}")
     else:
-        print(f"ERROR: Invalid input path: {input_path}")
-        return
+        print(f"Location:     Mezzanine share {MEZZ_SHARE}")
 
-    if not file_list:
-        print(f"ERROR: No XML files found in {input_path}")
-        return
+print()
 
-    # Output directory prompt
-    default_output = input_dir / "transformed"
-    out_str = input(f"Output folder [{default_output}]: ").strip()
-    output_dir = Path(out_str).resolve() if out_str else default_output
-    output_dir.mkdir(parents=True, exist_ok=True)
+#############################################
+# Processing loop
+#############################################
+if not FILE_LIST or not FILE_LIST[0].exists():[cite: 1]
+    print(f"ERROR: No XML files found in {INPUT_PATH}")
+    sys.exit(1)
 
-    # Print Summary
-    print(f"\nInput:        {input_path}")
-    print(f"Output:       {output_dir}")
-    print(f"Creator:      {args.creator}")
-    print(f"Generation:   {args.generation}")
+TOTAL = len(FILE_LIST)
+COUNT = 0
 
-    if args.generation == "mezzanine":
-        if args.lto:
-            print(f"Primary LTO:  {args.lto}")
-            if args.lto2:
-                print(f"Backup LTO:   {args.lto2}")
-        else:
-            print(f"Location:     Mezzanine share {args.share}")
-    print()
+print(f"Found {TOTAL} file(s) to process.")
+print()
 
-    # Retrieve paths from your config.py environment setup
-    # If they don't exist in config yet, it gracefully falls back to os.environ
-    xsl_path = getattr(config, 'XSL_STYLESHEET_PATH', os.environ.get("XSL_STYLESHEET_PATH", "/PATH/TO/XSL/STYLESHEET"))
-    saxon_path = getattr(config, 'SAXON_JAR_PATH', os.environ.get("SAXON_JAR_PATH", "/PATH/TO/SAXON.jar"))
+for FILE in FILE_LIST:
+    COUNT += 1
+    # Pure pathlib properties: name gives filename, stem gives filename without extension
+    FILENAME = FILE.name
+    BASE = FILE.stem
+    OUTFILE = OUTPUT_DIR / f"{BASE}-ca.xml"[cite: 1]
 
-    total = len(file_list)
-    print(f"Found {total} file(s) to process.\n")
+    print(f"Processing {COUNT} of {TOTAL}: {FILENAME}")
 
-    for count, file_path in enumerate(file_list, start=1):
-        filename = file_path.name
-        base = file_path.stem
-        outfile = output_dir / f"{base}-ca.xml"
-
-        print(f"Processing {count} of {total}: {filename}")
-
-        # ERROR VALIDATION: Ensure mezzanine has a location defined
-        if args.generation == "mezzanine":
-            if not args.share and not args.lto:
-                print(f"  ERROR: Mezzanine generation requires either --share or --lto for {filename}")
-                sys.exit(1)
-
-        # Skip if output already exists
-        if outfile.exists():
-            print("  Skipping (already exists)")
-            continue
-
-        # Build and execute the Java command
-        java_cmd = [
-            "java", "-cp", str(saxon_path), "net.sf.saxon.Transform",
-            f"-s:{file_path}",
-            f"-xsl:{xsl_path}",
-            f"-o:{outfile}",
-            f"creator={args.creator}",
-            f"generation={args.generation}",
-            f"mezzanine_share={args.share}",
-            f"lto_id={args.lto}",
-            f"lto_id_2={args.lto2}"
-        ]
-
-        result = subprocess.run(java_cmd)
-        
-        if result.returncode != 0:
-            print(f"  ERROR: Saxon failed on {filename}")
+    # ERROR VALIDATION: Ensure mezzanine has a location defined
+    if GENERATION == "mezzanine":
+        if not MEZZ_SHARE and not LTO_ID:
+            print(f"  ERROR: Mezzanine generation requires either --share or --lto for {FILENAME}")
             sys.exit(1)
 
-    print(f"\nFinished processing {total} file(s).\n")
+    # Skip if output already exists
+    if OUTFILE.exists():[cite: 1]
+        print("  Skipping (already exists)")
+        continue
 
-if __name__ == "__main__":
-    main()
+    # Construct java subprocess call matching original tool args
+    cmd = [
+        "java", "-cp", str(SAXON), "net.sf.saxon.Transform",
+        f"-s:{FILE}",
+        f"-xsl:{XSL}",
+        f"-o:{OUTFILE}",
+        f"creator={CREATOR}",
+        f"generation={GENERATION}",
+        f"mezzanine_share={MEZZ_SHARE}",
+        f"lto_id={LTO_ID}",
+        f"lto_id_2={LTO_ID_2}"
+    ]
+
+    result = subprocess.run(cmd)[cite: 1]
+
+    if result.returncode != 0:[cite: 1]
+        print(f"  ERROR: Saxon failed on {FILENAME}")
+        sys.exit(1)
+
+print()
+print(f"Finished processing {COUNT} file(s).")
