@@ -1,14 +1,14 @@
-# The primary purpose of this script is to sort digitized audio into folders with the base object name, so that these can be batch imported into Collective Access
-
-
 #!/usr/bin/env python3
 
-import os
-import shutil
-import re
+# The primary purpose of this script is to sort digitized audio into folders with the base object name, so that these can be batch imported into Collective Access
 
-def get_base_name(filename):
-    name, ext = os.path.splitext(filename)
+import re
+import shutil
+from pathlib import Path
+
+def get_base_name(file_path):
+    # .stem gets the filename without the extension
+    name = file_path.stem 
     # Remove trailing _NN (e.g., _01, _02)
     if re.search(r'_\d{2}$', name):
         return re.sub(r'_\d{2}$', '', name)
@@ -17,33 +17,34 @@ def get_base_name(filename):
 
 def get_files(input_dir):
     return [
-        f for f in os.listdir(input_dir)
-        if os.path.isfile(os.path.join(input_dir, f))
-        and not f.startswith('.')   # ignore .DS_Store / hidden files
+        f for f in input_dir.iterdir()
+        if f.is_file()
+        and not f.name.startswith('.')   # ignore .DS_Store / hidden files
     ]
 
 def process_files(input_dir, files, dry_run=True):
     total = len(files)
-    for idx, file in enumerate(files, start=1):
-        base = get_base_name(file)
-        src = os.path.join(input_dir, file)
-        dest_dir = os.path.join(input_dir, base)
-        dest = os.path.join(dest_dir, file)
+    for idx, file_path in enumerate(files, start=1):
+        base = get_base_name(file_path)
+        dest_dir = input_dir / base
+        dest = dest_dir / file_path.name
 
-        if os.path.exists(dest_dir) and not os.path.isdir(dest_dir):
+        if dest_dir.exists() and not dest_dir.is_dir():
             print(f"[{idx}/{total}] Skipping (conflict - not a directory): {dest_dir}")
             continue
 
         if dry_run:
-            print(f"[{idx}/{total}] Would move: {file} -> {base}/")
+            print(f"[{idx}/{total}] Would move: {file_path.name} -> {base}/")
         else:
-            os.makedirs(dest_dir, exist_ok=True)
-            shutil.move(src, dest)
-            print(f"[{idx}/{total}] Moved: {file} -> {base}/")
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            shutil.move(file_path, dest)
+            print(f"[{idx}/{total}] Moved: {file_path.name} -> {base}/")
 
 def main():
-    input_dir = input("Enter the directory containing files: ").strip()
-    if not os.path.isdir(input_dir):
+    dir_input = input("Enter the directory containing files: ").strip()
+    input_dir = Path(dir_input).resolve()
+
+    if not input_dir.is_dir():
         print("Error: Not a valid directory.")
         return
 
