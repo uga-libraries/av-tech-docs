@@ -13,7 +13,7 @@ if str(project_root) not in sys.path:
 # Import the required path helper directly from your suite's central config
 from config import require_path
 
-# Use the require_path as set up in the config file (No fallbacks)[cite: 3]
+# Use the require_path as set up in the config file (No fallbacks)
 XSL = require_path("XSL_STYLESHEET_PATH")
 SAXON = require_path("SAXON_JAR_PATH")
 
@@ -86,7 +86,7 @@ print()
 if not INPUT_PATH_STR:
     INPUT_PATH_STR = input("Input file or folder: ")
 
-# Turn input into a sanitized Path object[cite: 3]
+# Turn input into a sanitized Path object
 INPUT_PATH = Path(INPUT_PATH_STR.strip()).expanduser()
 
 #############################################
@@ -97,12 +97,12 @@ if INPUT_PATH.is_file():
     FILE_LIST = [INPUT_PATH]
 else:
     INPUT_DIR = INPUT_PATH
-    FILE_LIST = sorted(INPUT_DIR.glob("*.xml"))[cite: 1]
+    FILE_LIST = sorted(INPUT_DIR.glob("*.xml"))
 
 #############################################
 # Output directory
 #############################################
-DEFAULT_OUTPUT = INPUT_DIR / "transformed"[cite: 1]
+DEFAULT_OUTPUT = INPUT_DIR / "transformed"
 
 user_output = input(f"Output folder [{DEFAULT_OUTPUT}]: ")
 if user_output.strip():
@@ -110,7 +110,7 @@ if user_output.strip():
 else:
     OUTPUT_DIR = DEFAULT_OUTPUT
 
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)[cite: 1]
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 #############################################
 # Summary
@@ -134,7 +134,7 @@ print()
 #############################################
 # Processing loop
 #############################################
-if not FILE_LIST or not FILE_LIST[0].exists():[cite: 1]
+if not FILE_LIST or not FILE_LIST[0].exists():
     print(f"ERROR: No XML files found in {INPUT_PATH}")
     sys.exit(1)
 
@@ -149,7 +149,7 @@ for FILE in FILE_LIST:
     # Pure pathlib properties: name gives filename, stem gives filename without extension
     FILENAME = FILE.name
     BASE = FILE.stem
-    OUTFILE = OUTPUT_DIR / f"{BASE}-ca.xml"[cite: 1]
+    OUTFILE = OUTPUT_DIR / f"{BASE}-ca.xml"
 
     print(f"Processing {COUNT} of {TOTAL}: {FILENAME}")
 
@@ -160,7 +160,7 @@ for FILE in FILE_LIST:
             sys.exit(1)
 
     # Skip if output already exists
-    if OUTFILE.exists():[cite: 1]
+    if OUTFILE.exists():
         print("  Skipping (already exists)")
         continue
 
@@ -177,10 +177,14 @@ for FILE in FILE_LIST:
         f"lto_id_2={LTO_ID_2}"
     ]
 
-    result = subprocess.run(cmd)[cite: 1]
+    # capture_output=True traps stdout/stderr; text=True decodes them into strings automatically
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.returncode != 0:[cite: 1]
-        print(f"  ERROR: Saxon failed on {FILENAME}")
+    if result.returncode != 0:
+        print(f"\n[!] ERROR: Saxon failed processing {FILENAME}")
+        print("--- SAXON JAVA ERROR LOG ---")
+        print(result.stderr.strip())  # This prints the real Java stack trace/XML line number error
+        print("----------------------------\n")
         sys.exit(1)
 
 print()
