@@ -12,8 +12,8 @@ from datetime import date
 from pathlib import Path
 
 # Look up one level to find config.py in the av-tech-docs root directory
-script_dir = Path(__file__).resolve().parent 
-project_root = script_dir.parent              
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent
 
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
