@@ -1,8 +1,8 @@
-# Multipurpose script to create QCTools reports for an entire folder of files. The primary benefit of using this script is that it includes a counter to show progress.
-
 #!/usr/bin/env python3
 
-import os
+# Multipurpose script to create QCTools reports for an entire folder of files. The primary benefit of using this script is that it includes a counter to show progress.
+
+
 import subprocess
 from pathlib import Path
 
