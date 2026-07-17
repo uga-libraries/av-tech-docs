@@ -1,6 +1,6 @@
 <!--
 - XSL to create XML for importing digital object records into Collective Access
-- XSL works on mediainfo XML, generated with the flags: --Output=PBCore2 --Language=raw
+- XSL works on mediainfo XML, generated with the flags: Output=PBCore2 Language=raw
 - This XSL is meant to be run via transform-pbcore-to-ca-xml.sh, which passes variables to this script
 -->
 
